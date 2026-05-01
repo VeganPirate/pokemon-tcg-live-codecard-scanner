@@ -117,29 +117,62 @@ async function run() {
 
   console.log("Image:", canvas.width, canvas.height);
 
-  // 1. Detect QR
   const qr = detectQR(canvas);
 
-  let qrBox;
-
-  if (qr && qr.corners) {
-    console.log("QR TEXT:", qr.text);
-    qrBox = getQRBox(qr.corners);
-  } else {
-    console.warn("QR not detected → using fallback");
-
-    qrBox = {
-      x: canvas.width * 0.1,
-      y: canvas.height * 0.3,
-      w: canvas.width * 0.2,
-      h: canvas.width * 0.2
-    };
+  if (!qr || !qr.corners) {
+    console.warn("No QR detected");
+    return;
   }
 
-  // 2. Draw QR box (RED)
-  drawBox(ctx, qrBox.x, qrBox.y, qrBox.w, qrBox.h, "red", "QR");
+  const corners = qr.corners;
 
-  // 3. OCR region (relative to QR)
+  console.log("QR corners:", corners);
+
+  // =========================
+  // DRAW QR AS POLYGON (CORRECT)
+  // =========================
+  ctx.strokeStyle = "red";
+  ctx.lineWidth = 3;
+
+  function drawLine(a, b) {
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+
+  drawLine(corners.topLeftCorner, corners.topRightCorner);
+  drawLine(corners.topRightCorner, corners.bottomRightCorner);
+  drawLine(corners.bottomRightCorner, corners.bottomLeftCorner);
+  drawLine(corners.bottomLeftCorner, corners.topLeftCorner);
+
+  // =========================
+  // BUILD QR BOX (ONLY FOR OFFSET BASELINE)
+  // =========================
+  const xs = [
+    corners.topLeftCorner.x,
+    corners.topRightCorner.x,
+    corners.bottomLeftCorner.x,
+    corners.bottomRightCorner.x
+  ];
+
+  const ys = [
+    corners.topLeftCorner.y,
+    corners.topRightCorner.y,
+    corners.bottomLeftCorner.y,
+    corners.bottomRightCorner.y
+  ];
+
+  const qrBox = {
+    x: Math.min(...xs),
+    y: Math.min(...ys),
+    w: Math.max(...xs) - Math.min(...xs),
+    h: Math.max(...ys) - Math.min(...ys)
+  };
+
+  // =========================
+  // OCR BOX (still approximate)
+  // =========================
   const ocrBox = {
     x: qrBox.x + qrBox.w * ocrOffset.x,
     y: qrBox.y + qrBox.h * ocrOffset.y,
@@ -149,7 +182,9 @@ async function run() {
 
   drawBox(ctx, ocrBox.x, ocrBox.y, ocrBox.w, ocrBox.h, "lime", "OCR");
 
-  // 4. Crop OCR region
+  // =========================
+  // OCR
+  // =========================
   const cropped = cropRegion(
     canvas,
     ocrBox.x,
@@ -158,7 +193,6 @@ async function run() {
     ocrBox.h
   );
 
-  // 5. OCR
   const result = await Tesseract.recognize(
     cropped,
     "eng",
