@@ -1,21 +1,56 @@
-async function runOCRFromImage() {
-  const img = new Image();
-  img.src = "test-card.jpg";
+function loadImageToCanvas(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = src;
 
-  img.onload = async () => {
-    console.log("Image loaded, running OCR...");
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
 
-    const result = await Tesseract.recognize(
-      img,
-      "eng",
-      {
-        logger: m => console.log(m)
-      }
-    );
+      canvas.width = img.width;
+      canvas.height = img.height;
 
-    console.log("OCR RESULT:");
-    console.log(result.data.text);
-  };
+      ctx.drawImage(img, 0, 0);
+
+      resolve({ canvas, ctx, img });
+    };
+  });
 }
 
-runOCRFromImage();
+function cropRegion(sourceCanvas, x, y, width, height) {
+  const cropCanvas = document.createElement("canvas");
+  const ctx = cropCanvas.getContext("2d");
+
+  cropCanvas.width = width;
+  cropCanvas.height = height;
+
+  ctx.drawImage(
+    sourceCanvas,
+    x, y, width, height,  // source
+    0, 0, width, height    // destination
+  );
+
+  return cropCanvas;
+}
+
+async function testCropOCR() {
+  const { canvas } = await loadImageToCanvas("test-card.jpg");
+
+  // 👇 adjust these until it matches your text area
+  const cropped = cropRegion(canvas, 200, 50, 400, 120);
+
+  document.body.appendChild(cropped); // DEBUG: show crop result
+
+  const result = await Tesseract.recognize(
+    cropped,
+    "eng",
+    {
+      logger: m => console.log(m)
+    }
+  );
+
+  console.log("OCR RESULT:");
+  console.log(result.data.text);
+}
+
+testCropOCR();
