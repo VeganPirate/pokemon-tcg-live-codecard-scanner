@@ -1,14 +1,18 @@
 const imageSrc = "test-card.jpg";
 
-// ===== CONFIG (tune these later) =====
+// =======================
+// CONFIG (tune OCR later)
+// =======================
 const ocrOffset = {
-  x: 180,   // right of QR
-  y: -20,   // slightly above QR
-  w: 420,
-  h: 140
+  x: 1.2,   // relative to QR size (NOT pixels)
+  y: -0.2,
+  w: 2.5,
+  h: 0.8
 };
 
-// ===== LOAD IMAGE =====
+// =======================
+// LOAD IMAGE
+// =======================
 function loadImageToCanvas(src) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -30,7 +34,9 @@ function loadImageToCanvas(src) {
   });
 }
 
-// ===== DRAW BOX =====
+// =======================
+// DRAW BOX
+// =======================
 function drawBox(ctx, x, y, w, h, color, label) {
   ctx.strokeStyle = color;
   ctx.lineWidth = 3;
@@ -39,91 +45,130 @@ function drawBox(ctx, x, y, w, h, color, label) {
   if (label) {
     ctx.fillStyle = color;
     ctx.font = "16px Arial";
-    ctx.fillText(label, x, y - 5);
+    ctx.fillText(label, x, y - 6);
   }
 }
 
-// ===== CROPPING =====
-function cropRegion(sourceCanvas, x, y, w, h) {
-  const cropCanvas = document.createElement("canvas");
-  const ctx = cropCanvas.getContext("2d");
+// =======================
+// CROPPER
+// =======================
+function cropRegion(canvas, x, y, w, h) {
+  const out = document.createElement("canvas");
+  const ctx = out.getContext("2d");
 
-  cropCanvas.width = w;
-  cropCanvas.height = h;
+  out.width = w;
+  out.height = h;
 
-  ctx.drawImage(sourceCanvas, x, y, w, h, 0, 0, w, h);
+  ctx.drawImage(canvas, x, y, w, h, 0, 0, w, h);
 
-  document.body.appendChild(cropCanvas);
+  document.body.appendChild(out);
 
-  return cropCanvas;
+  return out;
 }
 
-// ===== QR DETECTION =====
+// =======================
+// QR DETECTION
+// =======================
+// returns: {text, corners}
 async function detectQR(canvas) {
-  const codeReader = new Html5Qrcode("reader-temp");
+  try {
+    const result = await Html5Qrcode.scanFile(canvas, true);
 
-  // Html5Qrcode needs a real element, so create hidden one
-  const tempDiv = document.createElement("div");
-  tempDiv.id = "reader-temp";
-  tempDiv.style.display = "none";
-  document.body.appendChild(tempDiv);
-
-  return new Promise((resolve, reject) => {
-    Html5Qrcode.getCameras().then(() => {
-
-      codeReader.scanFile(canvas, true)
-        .then(decodedText => {
-          resolve(decodedText);
-        })
-        .catch(err => {
-          console.warn("QR not found:", err);
-          resolve(null);
-        });
-
-    }).catch(reject);
-  });
+    return {
+      text: result,
+      // NOTE: html5-qrcode doesn't always give geometry in scanFile mode
+      // so we approximate fallback box below
+      corners: null
+    };
+  } catch (e) {
+    console.warn("QR detection failed:", e);
+    return null;
+  }
 }
 
-// ===== MAIN PIPELINE =====
+// =======================
+// ESTIMATE QR BOX (fallback)
+// =======================
+function estimateQRBox(canvas) {
+  return {
+    x: canvas.width * 0.1,
+    y: canvas.height * 0.3,
+    w: canvas.width * 0.25,
+    h: canvas.width * 0.25
+  };
+}
+
+// =======================
+// ROTATION ESTIMATION (from QR geometry)
+// =======================
+// NOTE: real angle needs corner detection; this is simplified heuristic
+function estimateRotation(qrBox, canvas) {
+  const centerX = qrBox.x + qrBox.w / 2;
+  const centerY = qrBox.y + qrBox.h / 2;
+
+  const horizontalBias = Math.abs(qrBox.w - qrBox.h);
+
+  // crude heuristic: if QR is "wide", assume rotation
+  if (horizontalBias > qrBox.w * 0.2) {
+    return 90;
+  }
+
+  return 0;
+}
+
+// =======================
+// SCALE ESTIMATION
+// =======================
+function estimateScale(qrBox) {
+  // QR codes are square → use width as scale reference
+  return qrBox.w;
+}
+
+// =======================
+// MAIN
+// =======================
 async function run() {
   const { canvas, ctx } = await loadImageToCanvas(imageSrc);
 
-  console.log("Image loaded:", canvas.width, canvas.height);
+  console.log("Image:", canvas.width, canvas.height);
 
-  // 1. Try QR detection (we’ll approximate position visually later)
-  let qrData = null;
+  // 1. Detect QR
+  const qr = await detectQR(canvas);
 
-  try {
-    qrData = await Html5Qrcode.scanFile(canvas, true);
-  } catch (e) {
-    console.log("QR scan failed (expected sometimes)");
+  let qrBox;
+
+  if (!qr) {
+    console.warn("Using fallback QR box");
+    qrBox = estimateQRBox(canvas);
+  } else {
+    console.log("QR TEXT:", qr.text);
+    qrBox = estimateQRBox(canvas);
   }
 
-  // ===== FALLBACK QR BOX (manual estimate if detection fails) =====
-  const qrBox = {
-    x: canvas.width * 0.1,
-    y: canvas.height * 0.3,
-    w: 180,
-    h: 180
-  };
+  // 2. Estimate rotation + scale
+  const rotation = estimateRotation(qrBox, canvas);
+  const scale = estimateScale(qrBox);
 
-  // 2. Draw QR box
+  console.log("Estimated rotation:", rotation);
+  console.log("Estimated scale:", scale);
+
+  // 3. Draw QR box (RED)
   drawBox(ctx, qrBox.x, qrBox.y, qrBox.w, qrBox.h, "red", "QR");
 
-  // 3. Compute OCR region relative to QR
+  // 4. Compute OCR box relative to QR + scale
   const ocrBox = {
-    x: qrBox.x + ocrOffset.x,
-    y: qrBox.y + ocrOffset.y,
-    w: ocrOffset.w,
-    h: ocrOffset.h
+    x: qrBox.x + qrBox.w * ocrOffset.x,
+    y: qrBox.y + qrBox.h * ocrOffset.y,
+    w: qrBox.w * ocrOffset.w,
+    h: qrBox.h * ocrOffset.h
   };
 
   drawBox(ctx, ocrBox.x, ocrBox.y, ocrBox.w, ocrBox.h, "lime", "OCR");
 
-  // 4. Crop OCR region
+  // 5. Crop OCR region
   const cropped = cropRegion(canvas, ocrBox.x, ocrBox.y, ocrBox.w, ocrBox.h);
 
-  // 5. OCR
+  // 6. OCR
   const result = await Tesseract.recognize(
     cropped,
     "eng",
@@ -134,9 +179,6 @@ async function run() {
 
   console.log("===== OCR RESULT =====");
   console.log(result.data.text);
-
-  console.log("===== QR RESULT =====");
-  console.log(qrData || "No QR detected");
 }
 
 run();
