@@ -1,10 +1,10 @@
 const imageSrc = "test-card.jpg";
 
 // =======================
-// CONFIG (tune OCR later)
+// CONFIG
 // =======================
 const ocrOffset = {
-  x: 1.2,   // relative to QR size (NOT pixels)
+  x: 1.2,
   y: -0.2,
   w: 2.5,
   h: 0.8
@@ -69,21 +69,11 @@ function cropRegion(canvas, x, y, w, h) {
 // =======================
 // QR DETECTION
 // =======================
-// returns: {text, corners}
 function detectQR(canvas) {
   const ctx = canvas.getContext("2d");
-  const imageData = ctx.getImageData(
-    0,
-    0,
-    canvas.width,
-    canvas.height
-  );
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-  const code = jsQR(
-    imageData.data,
-    imageData.width,
-    imageData.height
-  );
+  const code = jsQR(imageData.data, imageData.width, imageData.height);
 
   if (!code) return null;
 
@@ -93,6 +83,9 @@ function detectQR(canvas) {
   };
 }
 
+// =======================
+// QR BOX FROM CORNERS
+// =======================
 function getQRBox(location) {
   const xs = [
     location.topLeftCorner.x,
@@ -108,43 +101,12 @@ function getQRBox(location) {
     location.bottomRightCorner.y
   ];
 
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-
   return {
-    x: minX,
-    y: minY,
-    w: maxX - minX,
-    h: maxY - minY
+    x: Math.min(...xs),
+    y: Math.min(...ys),
+    w: Math.max(...xs) - Math.min(...xs),
+    h: Math.max(...ys) - Math.min(...ys)
   };
-}
-
-// =======================
-// ROTATION ESTIMATION (from QR geometry)
-// =======================
-// NOTE: real angle needs corner detection; this is simplified heuristic
-function estimateRotation(qrBox, canvas) {
-  const centerX = qrBox.x + qrBox.w / 2;
-  const centerY = qrBox.y + qrBox.h / 2;
-
-  const horizontalBias = Math.abs(qrBox.w - qrBox.h);
-
-  // crude heuristic: if QR is "wide", assume rotation
-  if (horizontalBias > qrBox.w * 0.2) {
-    return 90;
-  }
-
-  return 0;
-}
-
-// =======================
-// SCALE ESTIMATION
-// =======================
-function estimateScale(qrBox) {
-  // QR codes are square → use width as scale reference
-  return qrBox.w;
 }
 
 // =======================
@@ -160,25 +122,24 @@ async function run() {
 
   let qrBox;
 
-  if (!qr) {
-    console.warn("Using fallback QR box");
-    const qrBox = getQRBox(qr.corners);
-  } else {
+  if (qr && qr.corners) {
     console.log("QR TEXT:", qr.text);
-    const qrBox = getQRBox(qr.corners);
+    qrBox = getQRBox(qr.corners);
+  } else {
+    console.warn("QR not detected → using fallback");
+
+    qrBox = {
+      x: canvas.width * 0.1,
+      y: canvas.height * 0.3,
+      w: canvas.width * 0.2,
+      h: canvas.width * 0.2
+    };
   }
 
-  // 2. Estimate rotation + scale
-  const rotation = estimateRotation(qrBox, canvas);
-  const scale = estimateScale(qrBox);
-
-  console.log("Estimated rotation:", rotation);
-  console.log("Estimated scale:", scale);
-
-  // 3. Draw QR box (RED)
+  // 2. Draw QR box (RED)
   drawBox(ctx, qrBox.x, qrBox.y, qrBox.w, qrBox.h, "red", "QR");
 
-  // 4. Compute OCR box relative to QR + scale
+  // 3. OCR region (relative to QR)
   const ocrBox = {
     x: qrBox.x + qrBox.w * ocrOffset.x,
     y: qrBox.y + qrBox.h * ocrOffset.y,
@@ -188,16 +149,20 @@ async function run() {
 
   drawBox(ctx, ocrBox.x, ocrBox.y, ocrBox.w, ocrBox.h, "lime", "OCR");
 
-  // 5. Crop OCR region
-  const cropped = cropRegion(canvas, ocrBox.x, ocrBox.y, ocrBox.w, ocrBox.h);
+  // 4. Crop OCR region
+  const cropped = cropRegion(
+    canvas,
+    ocrBox.x,
+    ocrBox.y,
+    ocrBox.w,
+    ocrBox.h
+  );
 
-  // 6. OCR
+  // 5. OCR
   const result = await Tesseract.recognize(
     cropped,
     "eng",
-    {
-      logger: m => console.log(m)
-    }
+    { logger: m => console.log(m) }
   );
 
   console.log("===== OCR RESULT =====");
