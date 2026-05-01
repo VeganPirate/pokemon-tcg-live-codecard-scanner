@@ -48,14 +48,32 @@ startBtn.addEventListener("click", async () => {
   scanner = new Html5Qrcode("reader");
 
   try {
+    const devices = await Html5Qrcode.getCameras();
+
+    if (!devices || devices.length === 0) {
+      throw new Error("No camera found");
+    }
+
+    const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+
+    let cameraConfig;
+
+    if (isMobile) {
+      cameraConfig = { facingMode: "environment" };
+    } else {
+      // desktop → pick first available webcam
+      cameraConfig = devices[0].id;
+    }
+
     await scanner.start(
-      { facingMode: "environment" }, // back camera
+      cameraConfig,
       {
         fps: 10,
         qrbox: { width: 250, height: 250 }
       },
       onScanSuccess
     );
+
   } catch (err) {
     console.error(err);
     alert("Could not start camera");
