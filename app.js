@@ -1,89 +1,21 @@
-const scannedCodes = JSON.parse(localStorage.getItem("codes")) || [];
+async function runOCRFromImage() {
+  const img = new Image();
+  img.src = "test-card.jpg";
 
-const codeList = document.getElementById("code-list");
-const startBtn = document.getElementById("start-btn");
-const stopBtn = document.getElementById("stop-btn");
+  img.onload = async () => {
+    console.log("Image loaded, running OCR...");
 
-let scanner = null;
-let lastScan = null;
-
-renderCodes();
-
-function renderCodes() {
-  codeList.innerHTML = "";
-
-  scannedCodes.forEach(code => {
-    const li = document.createElement("li");
-    li.textContent = code;
-    codeList.appendChild(li);
-  });
-}
-
-function saveCodes() {
-  localStorage.setItem("codes", JSON.stringify(scannedCodes));
-}
-
-function onScanSuccess(decodedText) {
-  // Prevent duplicate rapid scans
-  if (decodedText === lastScan) return;
-
-  lastScan = decodedText;
-
-  if (!scannedCodes.includes(decodedText)) {
-    scannedCodes.push(decodedText);
-    saveCodes();
-    renderCodes();
-    console.log("Scanned:", decodedText);
-  }
-
-  // Small cooldown so same card doesn't spam
-  setTimeout(() => {
-    lastScan = null;
-  }, 2000);
-}
-
-startBtn.addEventListener("click", async () => {
-  if (scanner) return;
-
-  scanner = new Html5Qrcode("reader");
-
-  try {
-    const devices = await Html5Qrcode.getCameras();
-
-    if (!devices || devices.length === 0) {
-      throw new Error("No camera found");
-    }
-
-    const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
-
-    let cameraConfig;
-
-    if (isMobile) {
-      cameraConfig = { facingMode: "environment" };
-    } else {
-      // desktop → pick first available webcam
-      cameraConfig = devices[0].id;
-    }
-
-    await scanner.start(
-      cameraConfig,
+    const result = await Tesseract.recognize(
+      img,
+      "eng",
       {
-        fps: 10,
-        qrbox: { width: 250, height: 250 }
-      },
-      onScanSuccess
+        logger: m => console.log(m)
+      }
     );
 
-  } catch (err) {
-    console.error(err);
-    alert("Could not start camera");
-  }
-});
+    console.log("OCR RESULT:");
+    console.log(result.data.text);
+  };
+}
 
-stopBtn.addEventListener("click", async () => {
-  if (!scanner) return;
-
-  await scanner.stop();
-  await scanner.clear();
-  scanner = null;
-});
+runOCRFromImage();
