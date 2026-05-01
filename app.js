@@ -70,31 +70,54 @@ function cropRegion(canvas, x, y, w, h) {
 // QR DETECTION
 // =======================
 // returns: {text, corners}
-async function detectQR(canvas) {
-  try {
-    const result = await Html5Qrcode.scanFile(canvas, true);
+function detectQR(canvas) {
+  const ctx = canvas.getContext("2d");
+  const imageData = ctx.getImageData(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
 
-    return {
-      text: result,
-      // NOTE: html5-qrcode doesn't always give geometry in scanFile mode
-      // so we approximate fallback box below
-      corners: null
-    };
-  } catch (e) {
-    console.warn("QR detection failed:", e);
-    return null;
-  }
+  const code = jsQR(
+    imageData.data,
+    imageData.width,
+    imageData.height
+  );
+
+  if (!code) return null;
+
+  return {
+    text: code.data,
+    corners: code.location
+  };
 }
 
-// =======================
-// ESTIMATE QR BOX (fallback)
-// =======================
-function estimateQRBox(canvas) {
+function getQRBox(location) {
+  const xs = [
+    location.topLeftCorner.x,
+    location.topRightCorner.x,
+    location.bottomLeftCorner.x,
+    location.bottomRightCorner.x
+  ];
+
+  const ys = [
+    location.topLeftCorner.y,
+    location.topRightCorner.y,
+    location.bottomLeftCorner.y,
+    location.bottomRightCorner.y
+  ];
+
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+
   return {
-    x: canvas.width * 0.1,
-    y: canvas.height * 0.3,
-    w: canvas.width * 0.25,
-    h: canvas.width * 0.25
+    x: minX,
+    y: minY,
+    w: maxX - minX,
+    h: maxY - minY
   };
 }
 
@@ -133,16 +156,16 @@ async function run() {
   console.log("Image:", canvas.width, canvas.height);
 
   // 1. Detect QR
-  const qr = await detectQR(canvas);
+  const qr = detectQR(canvas);
 
   let qrBox;
 
   if (!qr) {
     console.warn("Using fallback QR box");
-    qrBox = estimateQRBox(canvas);
+    const qrBox = getQRBox(qr.corners);
   } else {
     console.log("QR TEXT:", qr.text);
-    qrBox = estimateQRBox(canvas);
+    const qrBox = getQRBox(qr.corners);
   }
 
   // 2. Estimate rotation + scale
