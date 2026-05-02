@@ -1,29 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Pokemon Code Scanner</title>
-
-  <!-- QR Scanner -->
-  <script src="https://unpkg.com/html5-qrcode"></script>
-  <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
-  <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
-
-  <!-- Styles -->
-  <link rel="stylesheet" href="styles.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>QR & OCR Scanner</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Load Tesseract for OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
-  <h1>Pokémon Code Scanner</h1>
+    <div id="scanner-container">
+        <div id="zoom-wrapper">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="canvas"></canvas>
+        </div>
+    </div>
+    
+    <div id="ui-layer">
+        <div id="result-box">
+            <div id="qr-result">QR: Scanning...</div>
+            <div id="ocr-result">OCR: Waiting for QR...</div>
+        </div>
+        <div class="controls">
+            <label class="switch">
+                <input type="checkbox" id="ocr-toggle">
+                <span class="slider round"></span>
+            </label>
+            <span class="toggle-label">Identify card set (slower)</span>
+        </div>
+    </div>
 
-  <button id="start-btn">Start Camera</button>
-  <button id="stop-btn">Stop Camera</button>
-
-  <div id="reader"></div>
-
-  <h2>Scanned Codes</h2>
-  <ul id="code-list"></ul>
-
-  <script src="app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
