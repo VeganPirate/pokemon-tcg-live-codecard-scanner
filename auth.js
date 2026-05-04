@@ -149,37 +149,52 @@ authForm.onsubmit = async (e) => {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
 
-    let result;
-    if (authMode === 'login') {
-        result = await _supabase.auth.signInWithPassword({ email, password });
-    } else if (authMode === 'signup') {
-        result = await _supabase.auth.signUp({ email, password });
-    } else if (authMode === 'reset') {
-        result = await _supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: REDIRECT_URL + '?resetPassword=true'
-        });
-    } else if (authMode === 'update_password') {
-        result = await _supabase.auth.updateUser({ password: password });
-    }
+    // Add loading state
+    const originalBtnText = authSubmitBtn.innerHTML;
+    authSubmitBtn.disabled = true;
+    authSubmitBtn.innerHTML = '<span class="spinner"></span> Processing...';
+    authSubmitBtn.classList.add('processing');
 
-    if (result && result.error) {
-        authError.textContent = result.error.message;
-    } else if (authMode === 'signup') {
-        authError.style.color = '#00FF00';
-        authError.textContent = 'Sign up successful! Check your email.';
-    } else if (authMode === 'reset') {
-        authError.style.color = '#00FF00';
-        authError.textContent = 'Password reset email sent!';
-    } else if (authMode === 'update_password') {
-        authError.style.color = '#00FF00';
-        authError.textContent = 'Password updated! You are now logged in.';
-        setTimeout(() => {
-            authMode = 'login';
-            updateAuthUI();
-            authModal.style.display = 'none';
-            // Clean up URL
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }, 2000);
+    let result;
+    try {
+        if (authMode === 'login') {
+            result = await _supabase.auth.signInWithPassword({ email, password });
+        } else if (authMode === 'signup') {
+            result = await _supabase.auth.signUp({ email, password });
+        } else if (authMode === 'reset') {
+            result = await _supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: REDIRECT_URL + '?resetPassword=true'
+            });
+        } else if (authMode === 'update_password') {
+            result = await _supabase.auth.updateUser({ password: password });
+        }
+
+        if (result && result.error) {
+            authError.textContent = result.error.message;
+        } else if (authMode === 'signup') {
+            authError.style.color = '#00FF00';
+            authError.textContent = 'Sign up successful! Check your email.';
+        } else if (authMode === 'reset') {
+            authError.style.color = '#00FF00';
+            authError.textContent = 'Password reset email sent!';
+        } else if (authMode === 'update_password') {
+            authError.style.color = '#00FF00';
+            authError.textContent = 'Password updated! You are now logged in.';
+            setTimeout(() => {
+                authMode = 'login';
+                updateAuthUI();
+                authModal.style.display = 'none';
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }, 2000);
+        }
+    } catch (err) {
+        authError.textContent = "An unexpected error occurred.";
+        console.error(err);
+    } finally {
+        // Restore button state
+        authSubmitBtn.disabled = false;
+        authSubmitBtn.innerHTML = originalBtnText;
+        authSubmitBtn.classList.remove('processing');
     }
 };
 
