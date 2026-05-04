@@ -236,4 +236,78 @@ input:checked + .slider:before {
     font-size: 0.85rem;
     margin-top: 10px;
     min-height: 1.2em;
+    text-align: center;
+}
+
+/* OAuth and Footer Styles */
+.oauth-btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    background: white;
+    color: #333;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    margin-bottom: 20px;
+    transition: background 0.2s;
+}
+
+.oauth-btn:hover {
+    background: #f1f1f1;
+}
+
+.oauth-btn img {
+    width: 18px;
+    height: 18px;
+}
+
+.divider {
+    text-align: center;
+    border-bottom: 1px solid #333;
+    line-height: 0.1em;
+    margin: 20px 0 30px;
+    color: #888;
+    font-size: 0.8rem;
+}
+
+.divider span {
+    background: #1a1a1a;
+    padding: 0 10px;
+}
+
+.primary-btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    background: #00FF00;
+    color: black;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.auth-footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-top: 25px;
+    font-size: 0.85rem;
+}
+
+.auth-footer a {
+    color: #aaa;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.auth-footer a:hover {
+    color: white;
+    text-decoration: underline;
 }

@@ -5,95 +5,9 @@ const qrResult = document.getElementById('qr-result');
 const ocrResult = document.getElementById('ocr-result');
 const ocrToggle = document.getElementById('ocr-toggle');
 
-// Supabase Configuration
-const SUPABASE_URL = 'https://rsaukpzvzbglnyepqymx.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_PAIT74pEkQ3lU49OQcUMTg_BBstXOfi';
-const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
 let lastScannedValue = null;
 let isOcrRunning = false;
 let videoTrack = null;
-let currentUser = null;
-
-// Auth UI Elements
-const authBtn = document.getElementById('auth-btn');
-const authModal = document.getElementById('auth-modal');
-const closeBtn = document.querySelector('.close');
-const authForm = document.getElementById('auth-form');
-const authError = document.getElementById('auth-error');
-const userEmailSpan = document.getElementById('user-email');
-
-// Auth State Management
-_supabase.auth.onAuthStateChange((event, session) => {
-    currentUser = session?.user || null;
-    if (currentUser) {
-        authBtn.textContent = 'Sign Out';
-        userEmailSpan.textContent = currentUser.email;
-        authModal.style.display = 'none';
-    } else {
-        authBtn.textContent = 'Sign In';
-        userEmailSpan.textContent = '';
-    }
-});
-
-authBtn.onclick = async () => {
-    if (currentUser) {
-        await _supabase.auth.signOut();
-    } else {
-        authModal.style.display = 'block';
-    }
-};
-
-closeBtn.onclick = () => authModal.style.display = 'none';
-window.onclick = (event) => {
-    if (event.target == authModal) authModal.style.display = 'none';
-};
-
-authForm.onsubmit = async (e) => {
-    e.preventDefault();
-    authError.textContent = '';
-    authError.style.color = '#FF4444'; // Reset to error color
-    
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    const action = e.submitter ? e.submitter.id : 'login-btn';
-
-    let result;
-    if (action === 'login-btn') {
-        result = await _supabase.auth.signInWithPassword({ email, password });
-    } else {
-        result = await _supabase.auth.signUp({ email, password });
-    }
-
-    if (result.error) {
-        authError.textContent = result.error.message;
-    } else if (action === 'signup-btn') {
-        authError.style.color = '#00FF00';
-        authError.textContent = 'Sign up successful! Check your email for confirmation.';
-    }
-};
-
-async function saveToSupabase(qrValue, ocrValue = null) {
-    if (!currentUser) return;
-
-    try {
-        const { error } = await _supabase
-            .from('scanned_codes')
-            .insert([
-                { 
-                    user_id: currentUser.id, 
-                    qr_content: qrValue, 
-                    ocr_content: ocrValue,
-                    created_at: new Date().toISOString()
-                }
-            ]);
-        
-        if (error) console.error('Error saving to Supabase:', error.message);
-        else console.log('Saved to Supabase successfully');
-    } catch (err) {
-        console.error('Save failed:', err);
-    }
-}
 
 const BOX_W = 0.2;  // 50% width
 const BOX_H = 2.5;  // 2.5x height
@@ -159,8 +73,10 @@ if (!('BarcodeDetector' in window)) {
                         lastScannedValue = qr.rawValue;
                         qrResult.textContent = `New QR: ${qr.rawValue}`;
                         
-                        // Save to Supabase immediately if logged in
-                        saveToSupabase(qr.rawValue);
+                        // Save to Supabase immediately if logged in (from auth.js)
+                        if (window.saveToSupabase) {
+                            window.saveToSupabase(qr.rawValue);
+                        }
                         
                         // 1. Kick the autofocus
                         kickAutofocus(); 
@@ -229,25 +145,12 @@ if (!('BarcodeDetector' in window)) {
         ocrResult.textContent = setNames || "OCR: Could not read set name";
         isOcrRunning = false;
 
-        // Update the Supabase record with OCR results if possible
-        if (setNames && currentUser) {
-            updateOcrInSupabase(qrValue, setNames);
+        // Update the Supabase record with OCR results if possible (from auth.js)
+        if (setNames && window.updateOcrInSupabase) {
+            window.updateOcrInSupabase(qrValue, setNames);
         }
     }
 
-    async function updateOcrInSupabase(qrValue, ocrValue) {
-        try {
-            const { error } = await _supabase
-                .from('scanned_codes')
-                .update({ ocr_content: ocrValue })
-                .eq('qr_content', qrValue)
-                .eq('user_id', currentUser.id);
-            
-            if (error) console.error('Error updating OCR in Supabase:', error.message);
-        } catch (err) {
-            console.error('Update failed:', err);
-        }
-    }
 
 
     function extractAndBinarize(origin, vX, vY, wScale, hScale, rotation) {
