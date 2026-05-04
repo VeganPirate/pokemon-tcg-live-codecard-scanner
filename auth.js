@@ -103,13 +103,45 @@ function updateAuthUI() {
     }
 }
 
-// Check for reset password flow on load
+// Check for auth flows on load via URL params
 window.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('resetPassword')) {
         authMode = 'update_password';
         updateAuthUI();
+    } else if (urlParams.get('login') === 'show') {
+        authMode = 'login';
+        updateAuthUI();
+        authModal.style.display = 'block';
     }
+});
+
+// Auth State Management
+_supabase.auth.onAuthStateChange((event, session) => {
+    currentUser = session?.user || null;
+    if (currentUser) {
+        authBtn.textContent = 'Sign Out';
+        userEmailSpan.textContent = currentUser.email;
+        authModal.style.display = 'none';
+    } else {
+        authBtn.textContent = 'Sign In';
+        userEmailSpan.textContent = '';
+    }
+});
+
+authBtn.onclick = async () => {
+    if (currentUser) {
+        await _supabase.auth.signOut();
+    } else {
+        authMode = 'login';
+        updateAuthUI();
+        authModal.style.display = 'block';
+    }
+};
+
+closeBtn.onclick = () => authModal.style.display = 'none';
+window.addEventListener('click', (event) => {
+    if (event.target == authModal) authModal.style.display = 'none';
 });
 
 // Google Login

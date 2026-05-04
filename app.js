@@ -15,7 +15,9 @@ const X_OFFSET_DOWN = -0.05;
 const X_OFFSET_UP = 0.85;
 
 if (!('BarcodeDetector' in window)) {
-    alert('BarcodeDetector API not supported.');
+    qrResult.textContent = 'Error: BarcodeDetector API not supported in this browser.';
+    qrResult.style.color = '#FF4444';
+    ocrResult.textContent = 'Please use on a mobile device.';
 } else {
     const barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
     startCamera();
