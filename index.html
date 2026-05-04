@@ -7,8 +7,31 @@
     <link rel="stylesheet" href="style.css">
     <!-- Load Tesseract for OCR -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <!-- Load Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+    <div id="auth-header">
+        <button id="auth-btn">Sign In</button>
+        <span id="user-email"></span>
+    </div>
+
+    <div id="auth-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Sign In</h2>
+            <form id="auth-form">
+                <input type="email" id="email" placeholder="Email" required>
+                <input type="password" id="password" placeholder="Password" required>
+                <div class="auth-actions">
+                    <button type="submit" id="login-btn">Login</button>
+                    <button type="submit" id="signup-btn">Sign Up</button>
+                </div>
+            </form>
+            <p id="auth-error"></p>
+        </div>
+    </div>
+
     <div id="scanner-container">
         <div id="zoom-wrapper">
             <video id="video" autoplay playsinline></video>
