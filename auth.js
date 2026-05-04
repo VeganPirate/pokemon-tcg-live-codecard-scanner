@@ -49,6 +49,8 @@ const authDivider = document.getElementById('auth-divider');
 
 let authMode = 'login'; // 'login', 'signup', or 'reset'
 
+const REDIRECT_URL = 'https://veganpirate.github.io/pokemon-tcg-live-codecard-scanner/';
+
 function updateAuthUI() {
     authError.textContent = '';
     authError.style.color = '#FF4444';
@@ -58,8 +60,10 @@ function updateAuthUI() {
         googleBtnText.textContent = 'Sign in with Google';
         authSubmitBtn.textContent = 'Login';
         toggleAuthLink.textContent = "Don't have an account? Sign Up";
+        toggleAuthLink.style.display = 'block';
         resetPasswordLink.style.display = 'block';
         passwordInput.style.display = 'block';
+        passwordInput.placeholder = 'Password';
         passwordInput.required = true;
         googleLoginBtn.style.display = 'flex';
         authDivider.style.display = 'block';
@@ -68,49 +72,44 @@ function updateAuthUI() {
         googleBtnText.textContent = 'Sign Up with Google';
         authSubmitBtn.textContent = 'Sign Up';
         toggleAuthLink.textContent = "Already have an account? Login";
+        toggleAuthLink.style.display = 'block';
         resetPasswordLink.style.display = 'none';
         passwordInput.style.display = 'block';
+        passwordInput.placeholder = 'Password';
         passwordInput.required = true;
         googleLoginBtn.style.display = 'flex';
         authDivider.style.display = 'block';
     } else if (authMode === 'reset') {
         authTitle.textContent = 'Reset Password';
-        authSubmitBtn.textContent = 'Reset';
+        authSubmitBtn.textContent = 'Send Reset Link';
         toggleAuthLink.textContent = "Back to Login";
+        toggleAuthLink.style.display = 'block';
         resetPasswordLink.style.display = 'none';
         passwordInput.style.display = 'none';
         passwordInput.required = false;
         googleLoginBtn.style.display = 'none';
         authDivider.style.display = 'none';
+    } else if (authMode === 'update_password') {
+        authTitle.textContent = 'Set New Password';
+        authSubmitBtn.textContent = 'Update Password';
+        passwordInput.style.display = 'block';
+        passwordInput.placeholder = 'New Password';
+        passwordInput.required = true;
+        toggleAuthLink.style.display = 'none';
+        resetPasswordLink.style.display = 'none';
+        googleLoginBtn.style.display = 'none';
+        authDivider.style.display = 'none';
+        authModal.style.display = 'block';
     }
 }
 
-// Auth State Management
-_supabase.auth.onAuthStateChange((event, session) => {
-    currentUser = session?.user || null;
-    if (currentUser) {
-        authBtn.textContent = 'Sign Out';
-        userEmailSpan.textContent = currentUser.email;
-        authModal.style.display = 'none';
-    } else {
-        authBtn.textContent = 'Sign In';
-        userEmailSpan.textContent = '';
-    }
-});
-
-authBtn.onclick = async () => {
-    if (currentUser) {
-        await _supabase.auth.signOut();
-    } else {
-        authMode = 'login';
+// Check for reset password flow on load
+window.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('resetPassword')) {
+        authMode = 'update_password';
         updateAuthUI();
-        authModal.style.display = 'block';
     }
-};
-
-closeBtn.onclick = () => authModal.style.display = 'none';
-window.addEventListener('click', (event) => {
-    if (event.target == authModal) authModal.style.display = 'none';
 });
 
 // Google Login
@@ -118,7 +117,7 @@ googleLoginBtn.onclick = async () => {
     const { error } = await _supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-            redirectTo: window.location.origin
+            redirectTo: REDIRECT_URL
         }
     });
     if (error) authError.textContent = error.message;
@@ -157,8 +156,10 @@ authForm.onsubmit = async (e) => {
         result = await _supabase.auth.signUp({ email, password });
     } else if (authMode === 'reset') {
         result = await _supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: window.location.origin
+            redirectTo: REDIRECT_URL + '?resetPassword=true'
         });
+    } else if (authMode === 'update_password') {
+        result = await _supabase.auth.updateUser({ password: password });
     }
 
     if (result && result.error) {
@@ -169,6 +170,16 @@ authForm.onsubmit = async (e) => {
     } else if (authMode === 'reset') {
         authError.style.color = '#00FF00';
         authError.textContent = 'Password reset email sent!';
+    } else if (authMode === 'update_password') {
+        authError.style.color = '#00FF00';
+        authError.textContent = 'Password updated! You are now logged in.';
+        setTimeout(() => {
+            authMode = 'login';
+            updateAuthUI();
+            authModal.style.display = 'none';
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }, 2000);
     }
 };
 
